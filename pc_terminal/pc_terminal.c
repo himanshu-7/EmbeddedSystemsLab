@@ -306,6 +306,14 @@ int main(int argc, char **argv)
 						rs232_putchar(p_obj.header);
 						rs232_putchar(p_obj.data);
 						rs232_putchar(p_obj.crc8);
+
+						rs232_putchar(p_obj.header);
+						rs232_putchar(p_obj.data);
+						rs232_putchar(p_obj.crc8);
+
+						rs232_putchar(p_obj.header);
+						rs232_putchar(p_obj.data);
+						rs232_putchar(p_obj.crc8);
 						printf("Escape found.\n");
 						sleep(1);
 						break;
