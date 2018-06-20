@@ -1,0 +1,6 @@
+V - Escape should go to panic
+V - fire button goes to panic
+X - Cable disconnect should go to panic
+V - keyboard 1 goes to panic
+V - disconnect joystick goes to panic?
+V - battery too low notification/panic
