@@ -375,11 +375,11 @@ int main(void)
  		}
 
 		
-		if (check_sensor_int_flag()) 
-		{
-			get_dmp_data();
-			run_filters();
-		}
+		// if (check_sensor_int_flag()) 
+		// {
+			// get_dmp_data();
+			// run_filters();
+		// }
 		
 	}	
 

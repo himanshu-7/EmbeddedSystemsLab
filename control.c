@@ -14,6 +14,9 @@
 #include "pc_terminal/protocol.h"
 #include <stdlib.h>
 
+//static bool raw_flag=true;
+//static bool full_flag=false;
+
 /*-----------------------------------------------------------------------------------------
 * convert_to_rpm() -	function to convert the raw values of lift, roll, pitch and yaw to
 * 						corresponding rotor rpm values.
@@ -114,7 +117,7 @@ double 	fixmul(int x1, int x2)
 void butterworth_filter(){
 
     static bool butter_flag = true;
-    static int32_t x[3] = {0,0,0}, y[3] = {0,0,0}, filtered_sr, a0, a1, a2, b0, b1;
+    static int32_t x[3] = {0,0,0}, y[3] = {0,0,0}, a0, a1, a2, b0, b1;
     if(butter_flag){
 		//200Hz
         a0=float2fix(0.0200833656);
@@ -141,8 +144,8 @@ void butterworth_filter(){
     y[0] = y[1];
     y[1] = y[2];
     filtered_sr = (a0*x[0]) + (a2*x[2]) + (a1*x[1]) + (b0 * y[0]) + (b1 * y[1]);
-    filtered_sr = fix2float(filtered_sr);
-    y[2] = filtered_sr;
+    sr_raw = fix2float(filtered_sr);
+    y[2] = sr_raw;
 
 
 }
@@ -161,7 +164,7 @@ void butterworth_filter(){
 
 void kalman_filter(){
 	static bool kalman_flag = true;
-	static int32_t sp_temp, sq_temp, say_temp, sax_temp, sp_kalman, sq_kalman, phi_kalman, theta_kalman, phi_error, theta_error, p_bias, q_bias, phi_raw, theta_raw, sp_raw, sq_raw, p2phi, c1, c2; 
+	static int32_t sp_temp, sq_temp, say_temp, sax_temp, sp_kalman, sq_kalman, phi_kalman, theta_kalman, phi_error, theta_error, p_bias, q_bias, p2phi, c1, c2; 
 	if(kalman_flag){
 		imu_init(false,100);
 		kalman_flag = false;
@@ -278,7 +281,7 @@ void yaw_control(){
 void full_control(){
 
 	int16_t LRPY16[4];
-	int32_t roll_error, pitch_error, yaw_error, adjusted_roll, adjusted_pitch, adjusted_yaw;
+	int32_t roll_error, pitch_error, yaw_error, adjusted_roll, adjusted_pitch, adjusted_yaw,counter_full=0;
 	int8_t kp = 10,kp1 = 8,kp2 = 20;
 
 	for(int8_t i=0; i<4; i++){
@@ -318,6 +321,10 @@ void full_control(){
 			kp2 = 50;
 			k_LRPY[6]=kp2-20;
 		}
+
+		for(uint8_t i=1; i<4; i++){
+			LRPY16[i] = 0;
+		}
 		roll_error = LRPY16[1]/4 - (k_LRPY[1]*4) - (phi - phi_o);
 		pitch_error = LRPY16[2]/4 - (k_LRPY[2]*4) - (theta - theta_o);
 		yaw_error = LRPY16[3]/4 + (k_LRPY[3]*4) + (sr - sr_o);								//take keyboard offset into account
@@ -326,10 +333,13 @@ void full_control(){
 		adjusted_yaw = (kp * yaw_error)/4;
 
 		convert_to_rpm((uint16_t)LRPY16[0], adjusted_roll, adjusted_pitch, adjusted_yaw);
+		if(counter_full%20 == 0){
 		#if MOTOR_VALUES_DEBUG == 1
 		printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d, kp:%d, kp1:%d, kp2:%d\n", ae[0], ae[1],ae[2],ae[3], kp,kp1,kp2);
 		//printf("kp:%d,kp1:%d,kp2:%d\n", kp, kp1,kp2);
 		#endif
+		}
+		counter_full++;
 	}else{
 		for(uint8_t i=0; i<4; i++){
 			ae[i]=0;
@@ -339,6 +349,91 @@ void full_control(){
 		#endif
 	}
 }
+
+
+/*
+*-----------------------------------------------------------------------------------------
+* raw_mode() 
+* 					
+*
+* Author: Himanshu Shah
+*------------------------------------------------------------------------------------------
+*/
+
+void raw_mode(){
+
+	int16_t LRPY16[4];
+	int32_t roll_error, pitch_error, yaw_error, adjusted_roll, adjusted_pitch, adjusted_yaw;
+	static int32_t counter_filter=0;
+	int8_t kp = 10,kp1 = 8,kp2 = 20;
+	
+	for(int8_t i=0; i<4; i++){
+		LRPY16[i] = ((int16_t)(LRPY[i]))<<8;
+	}
+
+	if((uint8_t)LRPY[0] > 30){
+		
+		kp += k_LRPY[4];
+		if(kp < 1){
+			kp = 1;
+			k_LRPY[4]=kp-10;
+		}
+		if(kp > 50){
+			kp=50;
+			k_LRPY[4]=kp-10;
+		}
+		kp1 += k_LRPY[5];
+		if(kp1 < 1){
+			kp1 = 1;
+			k_LRPY[5]=kp1-8;
+		}
+		if(kp1 > 50){
+			kp1 = 50;
+			k_LRPY[5]=kp1-8;
+		}
+		kp2 += k_LRPY[6];
+		if(kp2 < 1 ){
+			kp2 = 1;
+			k_LRPY[6]=kp2-20;
+		}
+		if(kp2 > 50){
+			kp2 = 50;
+			k_LRPY[6]=kp2-20;
+		}
+		
+		butterworth_filter();
+		kalman_filter();
+
+
+		for(uint8_t i=1; i<4; i++){
+			LRPY16[i] = 0;
+		}
+		
+		roll_error = LRPY16[1]/4 - (k_LRPY[1]*4) - (phi_raw - phi_o);
+		pitch_error = LRPY16[2]/4 - (k_LRPY[2]*4) - (theta_raw - theta_o);
+		yaw_error = LRPY16[3]/4 + (k_LRPY[3]*4) + (sr_raw - sr_o);								//take keyboard offset into account
+		adjusted_pitch = (kp1 * pitch_error)/4 + (kp2 * (sq_raw - sq_o))/2;
+		adjusted_roll = (kp1 * roll_error)/4 - (kp2 * (sp_raw - sp_o))/2;
+		adjusted_yaw = (kp * yaw_error)/4;
+		counter_filter++;
+		convert_to_rpm((uint16_t)LRPY16[0], adjusted_roll, adjusted_pitch, adjusted_yaw);
+		if(counter_filter%20 == 0){
+		#if MOTOR_VALUES_DEBUG == 1
+		printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d, kp:%d, kp1:%d, kp2:%d\n", ae[0], ae[1],ae[2],ae[3], kp,kp1,kp2);
+		//printf("kp:%d,kp1:%d,kp2:%d\n", kp, kp1,kp2);
+		#endif
+		}
+	}else{
+		for(uint8_t i=0; i<4; i++){
+			ae[i]=0;
+		}
+		#if MOTOR_VALUES_DEBUG == 1
+		printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d\n", ae[0], ae[1],ae[2],ae[3]);
+		#endif
+	}
+}
+
+
 
 /*
 *-----------------------------------------------------------------------------------------
@@ -354,57 +449,70 @@ void height_control(){
 	static int32_t height_error = 0, adjusted_lift = 0, desired_pressure = 0;
 	int16_t roll_error, pitch_error, yaw_error, adjusted_roll, adjusted_pitch, adjusted_yaw;
 	int8_t kp = 10, kp1 = 0,kp2 = 0;
-	int16_t kl = 0;
+	int16_t kl = 10;
 	
-	for(uint8_t i =0; i<4; i++){
-		LRPY16[i]=LRPY[i]<<8;
-	}
-
 	for(uint8_t i=0; i<4; i++){
-			ae[i]=0;
+		LRPY16[i]=(int16_t)LRPY[i]<<8;
 	}
 
-	if(LRPY[0] > 10 || LRPY[0] < -10){
+	if((uint8_t)LRPY[0] > 30){
 		
 		kp += k_LRPY[4];
 		if(kp < 1){
 			kp = 1;
-			k_LRPY[4]=0;
+			k_LRPY[4]=kp-10;
+		}
+		if(kp > 50){
+			kp=50;
+			k_LRPY[4]=kp-10;
 		}
 		kp1 += k_LRPY[5];
 		if(kp1 < 1){
 			kp1 = 1;
-			k_LRPY[5]=0;
+			k_LRPY[5]=kp1-8;
+		}
+		if(kp1 > 50){
+			kp1 = 50;
+			k_LRPY[5]=kp1-8;
 		}
 		kp2 += k_LRPY[6];
 		if(kp2 < 1 ){
 			kp2 = 1;
-			k_LRPY[6]=0;
+			k_LRPY[6]=kp2-20;
 		}
-
-		kl += k_LRPY[7];
+		if(kp2 > 50){
+			kp2 = 50;
+			k_LRPY[6]=kp2-20;
+		}
 		if(kl < 1){
 			kl = 1;
-			k_LRPY[7]=0;
+			k_LRPY[7] = kl-10; 
+		}
+		if(kl>2000){
+			kl=2000;
+			k_LRPY[7] = kl-10;
 		}
 
 		if(check_sensor_int_flag()){
 			get_dmp_data();
+		}
+		for(uint8_t i=1; i<4; i++){
+			LRPY[i]=0;
 		}
 		read_baro();
 		if(height_flag<20){			// filter for spikes ;
 			height_flag++;
 			desired_pressure = pressure;
 		}
-		roll_error = LRPY16[1]/4 - (k_LRPY[1]*0) - phi;
-		pitch_error = LRPY16[2]/4 - (k_LRPY[2]*0) - theta;
-		yaw_error = LRPY16[3]/4 + (k_LRPY[3]*0) + sr;	
+		roll_error = LRPY16[1]/4 - (k_LRPY[1]*4) - phi;
+		pitch_error = LRPY16[2]/4 - (k_LRPY[2]*4) - theta;
+		yaw_error = LRPY16[3]/4 + (k_LRPY[3]*4) + sr;	
 		height_error = pressure - desired_pressure;							//take keyboard offset into account
 		adjusted_pitch = (kp1 * pitch_error)/4 + (kp2 * sq)/2;
 		adjusted_roll = (kp1 * roll_error)/4 - (kp2 * sp)/2;
 		adjusted_yaw = (kp * yaw_error)/4;
 		adjusted_lift = (uint16_t)LRPY16[0] + (kl * height_error);
-		convert_to_rpm((uint16_t)adjusted_lift, LRPY16[1], LRPY16[2], LRPY16[3]);
+		convert_to_rpm((uint16_t)adjusted_lift, adjusted_roll, adjusted_pitch, adjusted_yaw);
 		printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d, kl:%d, kp:%d, kp1:%d, kp2:%d\n", ae[0], ae[1],ae[2],ae[3],kl, kp, kp1, kp2);
 		//printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d\n", ae[0], ae[1],ae[2],LRPY[3]);
 		//printf("desired: %d, pressure: %d, height_error:%d\n", desired_pressure, pressure, height_error);
@@ -495,6 +603,7 @@ bool near_zero(void){
 */
 void run_control() // 250Hz
 {
+	static uint32_t man_counter =0;
 	static uint16_t panic_counter = 0;
 	uint32_t cur_time = 0;
 
@@ -562,14 +671,18 @@ void run_control() // 250Hz
 				LRPY16[i]=(int16_t)LRPY[i]<<8;
 			}
 			convert_to_rpm((uint16_t)LRPY16[0],LRPY16[1], LRPY16[2], LRPY16[3]);
-			printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d\n", ae[0],ae[1],ae[2],ae[3]);			
+			if(man_counter%20 ==0){			
 			#if MOTOR_VALUES_DEBUG == 1
 			printf("ae0:%d, ae1:%d, ae2:%d, ae3:%d\n", ae[0],ae[1],ae[2],ae[3]);
 			#endif
+			}
 			break;
 		case CALIBRATION_ENTER:
 			printf("Initiate CALIBRATION mode.\n");
 			CalibrationStartTime = get_time_us();
+			if(check_sensor_int_flag()){
+				get_dmp_data();
+			}
 			phi_o = phi;
 			theta_o = theta;
 			psi_o = psi;
@@ -579,6 +692,9 @@ void run_control() // 250Hz
 			QuadState = CALIBRATION;
 		case CALIBRATION:
 			cur_time = get_time_us();
+			if(check_sensor_int_flag()){
+				get_dmp_data();
+			}
 			if(cur_time < CalibrationStartTime + CALIBRATION_TIME_US){
 				phi_o -= ((phi_o - phi) >> 2);
 				theta_o -= ((theta_o - theta) >> 2);
@@ -595,14 +711,20 @@ void run_control() // 250Hz
 			yaw_control();
 			break;
 		case FULLCONTROL:
+			// if(full_flag){
+			// 	full_flag=false;
+			// 	raw_flag = true;
+			// 	imu_init(true,100);
+			// }
 			full_control();
 			break;
 		case RAW:
-			// static bool raw_flag = true;
 			// if(raw_flag){
+			// 	raw_flag=false;
+			// 	full_flag=true;
 			// 	imu_init(false,100);
 			// }
-			butterworth_filter();
+			raw_mode();
 			break;
 		case HEIGHT:
 			height_control();
@@ -621,36 +743,76 @@ void run_control() // 250Hz
 				break;
 			}
 
-			// Only go to DUMPLOGS and CALIBRATION from SAFE modes.
-			if((ModeToSet == DUMPLOGS || ModeToSet == CALIBRATION )){
-				if(PreviousMode == SAFE || PreviousMode == SAFE_NONZERO){
+			if(PreviousMode == ModeToSet){
+				QuadState = PreviousMode;
+				break;
+			}
+
+			// Don't allow any mode changes from PANIC or SAFE_NONZERO.
+			if(PreviousMode == PANIC || PreviousMode == PANIC_COUNTDOWN || PreviousMode == SAFE_NONZERO){
+				// printf("Can't statechange out of protected modes.\n");
+				QuadState = PreviousMode;
+				break;
+			}
+
+			// Check full to heigth and vice-versa
+			if(ModeToSet == FULLCONTROL){
+				if(PreviousMode == HEIGHT || PreviousMode == SAFE){
+					//printf("FULLCONTROL set.\n");
 					QuadState = ModeToSet;
-					if(ModeToSet == CALIBRATION){
-						QuadState = CALIBRATION_ENTER;
-					}
 					break;
 				}else{
+					//printf("Cannot change flight modes, you're not in SAFE mode.\n");
+					QuadState = PreviousMode;
+					break;
+				}
+			}
+			if(ModeToSet == HEIGHT){
+				if(PreviousMode == FULLCONTROL || PreviousMode == SAFE){
+					//printf("HEIGHT set.\n");
+					QuadState = ModeToSet;
+					break;
+				}else{
+					//printf("Cannot change flight modes, you're not in SAFE mode.\n");
 					QuadState = PreviousMode;
 					break;
 				}
 			}
 
-
-			// Don't allow any mode changes from PANIC or SAFE_NONZERO.
-			if(PreviousMode != PANIC && PreviousMode != PANIC_COUNTDOWN && PreviousMode != SAFE_NONZERO){
-				if(ModeToSet == MANUAL){
-					printf("Initiated MANUAL mode.\n");
-				}else if(ModeToSet == PANIC){
-					printf("Initiated PANIC mode.\n");
+			// Check Flights only from safe
+			if(ModeToSet == MANUAL || ModeToSet == YAWCONTROL || ModeToSet == RAW){
+				if(PreviousMode == SAFE){
+					//printf("MANUAL or YAWCONTROL set.\n");
+					QuadState = ModeToSet;
+					break;
 				}else{
-					printf("Initiated 0x%02X mode.\n", ModeToSet);
+					//printf("Cannot change flight modes, you're not in SAFE mode.\n");
+					QuadState = PreviousMode;
+					break;
 				}
-				QuadState = ModeToSet;
-				break;
 			}
 
-			// Assume all is normal.
-			QuadState = PreviousMode;
+			// Only go to DUMPLOGS and CALIBRATION from SAFE modes.
+			if((ModeToSet == DUMPLOGS || ModeToSet == CALIBRATION )){
+				if(PreviousMode == SAFE || PreviousMode == SAFE_NONZERO){
+					QuadState = ModeToSet;
+					if(ModeToSet == CALIBRATION){
+						//printf("CALIBRATION mode set.\n");
+						QuadState = CALIBRATION_ENTER;
+					}else{
+						//printf("DUMPLOGS mode set.\n");
+					}
+					break;
+				}else{
+					//printf("Cannot change to logs/calibration modes, you're not in SAFE mode.\n");
+					QuadState = PreviousMode;
+					break;
+				}
+			}
+
+			// Something went wrong
+			//remote_notify_state(PANIC, ACK);
+			QuadState = PANIC;
 			break;
 		default:
 			QuadState = PANIC;
@@ -658,6 +820,40 @@ void run_control() // 250Hz
 
 
 	}
+			// Only go to DUMPLOGS and CALIBRATION from SAFE modes.
+		// 	if((ModeToSet == DUMPLOGS || ModeToSet == CALIBRATION )){
+		// 		if(PreviousMode == SAFE || PreviousMode == SAFE_NONZERO){
+		// 			QuadState = ModeToSet;
+		// 			if(ModeToSet == CALIBRATION){
+		// 				QuadState = CALIBRATION_ENTER;
+		// 			}
+		// 			break;
+		// 		}else{
+		// 			QuadState = PreviousMode;
+		// 			break;
+		// 		}
+		// 	}
+
+
+		// 	// Don't allow any mode changes from PANIC or SAFE_NONZERO.
+		// 	if(PreviousMode != PANIC && PreviousMode != PANIC_COUNTDOWN && PreviousMode != SAFE_NONZERO){
+		// 		if(ModeToSet == MANUAL){
+		// 			printf("Initiated MANUAL mode.\n");
+		// 		}else if(ModeToSet == PANIC){
+		// 			printf("Initiated PANIC mode.\n");
+		// 		}else{
+		// 			printf("Initiated 0x%02X mode.\n", ModeToSet);
+		// 		}
+		// 		QuadState = ModeToSet;
+		// 		break;
+		// 	}
+
+		// 	// Assume all is normal.
+		// 	QuadState = PreviousMode;
+		// 	break;
+		// default:
+		// 	QuadState = PANIC;
+		// 	break;
 	// ae[0] = xxx, ae[1] = yyy etc etc
 	update_motors();
 }
