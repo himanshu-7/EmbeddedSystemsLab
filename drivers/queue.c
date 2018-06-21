@@ -25,9 +25,10 @@ void enqueue(queue *q,char x){
 }
 
 char dequeue(queue *q){
-
+	NVIC_DisableIRQ(UART0_IRQn);
 	char x = q->Data[ q->first ];
 	q->first = (q->first + 1) % QUEUE_SIZE;
 	q->count -= 1;
+	NVIC_EnableIRQ(UART0_IRQn);
 	return x;
 }

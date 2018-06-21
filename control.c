@@ -717,11 +717,6 @@ void run_control() // 250Hz
 				break;
 			}
 
-			if(PreviousMode == ModeToSet){
-				QuadState = PreviousMode;
-				break;
-			}
-
 			// Don't allow any mode changes from PANIC or SAFE_NONZERO.
 			if(PreviousMode == PANIC || PreviousMode == PANIC_COUNTDOWN || PreviousMode == SAFE_NONZERO){
 				// printf("Can't statechange out of protected modes.\n");
