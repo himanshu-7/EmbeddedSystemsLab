@@ -24,16 +24,16 @@
 #include "app_util_platform.h"
 #include "crc.h"
 
-#define CONTROLLER 1
-#define NON_ZERO_DEBUG	 1
-#define BATTERY_CONNECTED 0
-#define PACKET_DEBUG 0
-#define LOG_DEBUG 0
-#define MOTOR_VALUES_DEBUG 1
+#define CONTROLLER 1						
+#define NON_ZERO_DEBUG	 1									//flag to turn on non-zero input debugging during mode changes
+#define BATTERY_CONNECTED 1									//flag to indicate whether battery is connected or not
+#define PACKET_DEBUG 0										//flag to enable packet reception debugging
+#define LOG_DEBUG 0											//flag to enble debugging during logging
+#define MOTOR_VALUES_DEBUG 1								//flag to turn on motor RPM's on terminal
 
-#define TIMER_PERIOD	4 //50ms=20Hz (MAX 23bit, 4.6h), 4ms = 250Hz
+#define TIMER_PERIOD	4 									//50ms=20Hz (MAX 23bit, 4.6h), 4ms = 250Hz
 #define MAX_PACKET_SIZE 10
-#define CALIBRATION_TIME_US 30000000
+#define CALIBRATION_TIME_US 30000000						//calibration time 30 seconds (initial 15-20seconds garbage value so calibration should be more than that)
 #define USB_TIMEOUT_MS (KEEP_ALIVE_TIMEOUT_MS + 500)
 #define USB_TIMEOUT_CYCLES (USB_TIMEOUT_MS/TIMER_PERIOD)
 #define BLINKLED_HZ 5
@@ -101,13 +101,13 @@ bool i2c_write(uint8_t slave_addr, uint8_t reg_addr, uint8_t length, uint8_t con
 bool i2c_read(uint8_t slave_addr, uint8_t reg_addr, uint8_t length, uint8_t *data);
 
 // MPU wrapper
-int16_t phi_o, theta_o, psi_o; // offsets
-int16_t sp_o, sq_o, sr_o; // offsets
-int16_t phi, theta, psi, phi_raw, theta_raw, psi_raw;
-int16_t sp, sq, sr, sp_raw, sq_raw, sr_raw;
+int16_t phi_o, theta_o, psi_o; 									// calibration offsets
+int16_t sp_o, sq_o, sr_o; 										// calibration offsets
+int16_t phi, theta, psi, phi_raw, theta_raw, psi_raw; 
+int16_t sp, sq, sr, sp_raw, sq_raw, sr_raw; 
 int16_t sax, say, saz;
 uint8_t sensor_fifo_count;
-void imu_init(bool dmp, uint16_t interrupt_frequency); // if dmp is true, the interrupt frequency is 100Hz - otherwise 32Hz-8kHz
+void imu_init(bool dmp, uint16_t interrupt_frequency); 			// if dmp is true, the interrupt frequency is 100Hz - otherwise 32Hz-8kHz
 void get_dmp_data(void);
 void get_raw_sensor_data(void);
 bool check_sensor_int_flag(void);

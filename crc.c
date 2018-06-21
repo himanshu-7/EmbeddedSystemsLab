@@ -77,22 +77,15 @@ uint8_t make_crc8_tabled(uint8_t header, uint8_t data[], uint8_t numDataBytes){
 
 // Nontabled CRC calculation 
 uint8_t make_crc8_nontabled(uint8_t header, uint8_t data[], uint8_t numDataBytes){
-    //printf("Calculating CRC by calc... Headerbyte: %02X, inPacketBuffer[0]: %02X, inPacketBufSize: %02X\n", header, data[0], numDataBytes);
-    // Create packet byte array
     uint8_t packet[numDataBytes+1];
     packet[0] = header;
-    //printf("packet: %02X", packet[0]);
     for(uint8_t i=0; i<numDataBytes; i++){
         packet[i+1] = data[i];
-        //printf(" %02X\n", packet[i+1]);
     }
-    //printf("\n");
-
-    // Calculate CRC
+    
     uint8_t crc = 0;
 
     uint8_t length = numDataBytes + 1;
-    //printf("Calcs: %02X, length: %02X\n", crc, length);
     for(uint8_t i=0; i<length; ++i){
         crc ^= (packet[i] << (WIDTH - 8));
         for(uint8_t j=8; j>0; --j){
@@ -102,9 +95,7 @@ uint8_t make_crc8_nontabled(uint8_t header, uint8_t data[], uint8_t numDataBytes
                 crc = crc << 1;
             }
         }
-        //printf("Calc[%d]: %02X\n", i, crc);
     }
-    //printf("CRC by calc: %02X\n", crc);
     return crc;
 }
 

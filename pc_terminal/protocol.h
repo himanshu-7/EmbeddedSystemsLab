@@ -20,7 +20,7 @@ void detect_term_input(char);
 
 // Control packets
 #define J_CONTROL		0x80
-#define J_CONTROL_D		0x81 // double precision control message
+#define J_CONTROL_D		0x81 // double precision control message(not used)
 #define K_ROLL			0x82
 #define K_LIFT			0x83
 #define K_YAW			0x84
@@ -29,7 +29,6 @@ void detect_term_input(char);
 #define K_P1            0x89
 #define K_P2            0x8A
 #define K_HEIGHT        0x8B
-//#define PING			0x87
 #define PING			'h'
 #define PING_DATCRC		0x88
 
@@ -68,14 +67,12 @@ void detect_term_input(char);
 //Some escape value
 #define ABORT			0x60
 
-//#define INCREASEPROP    1
-//#define DECREASEPROP    -1
 #define DECREASE		-1
 #define INCREASE		1
 
 struct packet{
     uint8_t header;
-    uint8_t data; //make it 1 byte for now, gonna fix this later
+    uint8_t data;
     uint8_t crc8;
 };
 

@@ -216,7 +216,7 @@ int main(int argc, char **argv)
 	while ((c = rs232_getchar_nb()) != -1)
 		fputc(c,stderr);
 	
-	
+// check whether the connection is ok
 	ftime(&time_buffer);
 	start_time=time_buffer.time*1000 + time_buffer.millitm;
 	end_time = start_time;
@@ -224,78 +224,12 @@ int main(int argc, char **argv)
 	keep_alive_current = start_time;
 	
 
-	// Joystick timing test.
-    /*
-    int i = 0;
-    ftime(&start);
-
-    while(i++ < 1000) {
-        send_j_packet();
-    }
-
-    ftime(&end);
-    diff = (int) (1000.0 * (end.time - start.time) + (end.millitm - start.millitm));
-    printf("\nJoystick operations took %u milliseconds\n", diff);
-    */
-
-
- //    //Ping timing test.
- //    sleep(2);
- //    bool response_found = false;
- //    printf("Start pings.\n");
- //    ftime(&start);
- //    uint8_t i = 0;
- //    for(i=0; i<100; i++){
-	// 	rs232_putchar(PING);
-	// 	while(!response_found){
-	// 		if((c = rs232_getchar_nb()) != -1){
-	// 			//printf("%c", c);
-	// 			if(c == PING){
-	// 				response_found = true;
-	// 			}
-	// 		}
-	// 	}
-	// 	response_found = false;
-	// }
-	// ftime(&end);
-	// printf("End pings.\n");
- //    diff = (int) (1000.0 * (end.time - start.time) + (end.millitm - start.millitm));
- //    printf("\n%d pings took %u milliseconds. Milliseconds per ping: %.2f\n", i, diff, (float)((float)diff/i));
-    
-
-	// Ping test with data and CRC.
-	/*
-	uint8_t data_temp[8];
-	printf("Start ping with data.\n");
-	struct packet p_obj;
-	p_obj.header=PING_DATCRC;
-	p_obj.data=PING_DATCRC;
-	p_obj.crc8 = make_crc8_tabled(p_obj.header, &p_obj.data, 1);
-	rs232_putchar(p_obj.header);
-	rs232_putchar(p_obj.data);
-	rs232_putchar(p_obj.crc8);
-	while(!response_found){
-		if((c = rs232_getchar_nb()) != -1){
-			for(uint8_t i=1; i<8; i++){
-				data_temp[i] = i-1;
-			}
-		}
-	}
-	printf("End ping with data.\n");
-	*/
-
-
-	// sleep(100);
-	/* send & receive
-	 */
 	for (;;)
 	{
 		read_js_values();
 		if((start_time + (1000/JOYSTICK_HZ)) >= end_time){
 
 			if ((c = term_getchar_nb()) != -1){
-				//printf("Character found: %c\n", c);
-				//rs232_putchar(c);
 
 				if((int)c == 27){							 //detect for escape button and arrowkeys, as arrow keys contains escape character in them
 					if((c2 = term_getchar_nb()) == -1){
@@ -320,7 +254,6 @@ int main(int argc, char **argv)
 					}
 				}else{
 					detect_term_input(c);
-					//break;
 				}
 			}else{
 				ftime(&time_buffer);
@@ -334,18 +267,13 @@ int main(int argc, char **argv)
 					rs232_putchar(p_obj.header);
 					rs232_putchar(p_obj.data);
 					rs232_putchar(p_obj.crc8);
-
-					// TODO: maybe integrate no-ping response message?
 				}
-				//printf("Nothing should be found really...\n");
 			}
 
 			if ((c = rs232_getchar_nb()) != -1){
 				term_putchar(c);
 			}
-        	
-			//send_j_packet();
-		
+				
 			ftime(&time_buffer);
 			end_time=time_buffer.time*1000 + time_buffer.millitm;
 		
