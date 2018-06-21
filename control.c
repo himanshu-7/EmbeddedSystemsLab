@@ -14,8 +14,8 @@
 #include "pc_terminal/protocol.h"
 #include <stdlib.h>
 
-//static bool raw_flag=true;
-//static bool full_flag=false;
+static bool raw_flag=true;
+static bool full_flag=false;
 
 /*-----------------------------------------------------------------------------------------
 * convert_to_rpm() -	function to convert the raw values of lift, roll, pitch and yaw to
@@ -322,9 +322,9 @@ void full_control(){
 			k_LRPY[6]=kp2-20;
 		}
 
-		for(uint8_t i=1; i<4; i++){
-			LRPY16[i] = 0;
-		}
+		// for(uint8_t i=1; i<4; i++){
+		// 	LRPY16[i] = 0;
+		// }
 		roll_error = LRPY16[1]/4 - (k_LRPY[1]*4) - (phi - phi_o);
 		pitch_error = LRPY16[2]/4 - (k_LRPY[2]*4) - (theta - theta_o);
 		yaw_error = LRPY16[3]/4 + (k_LRPY[3]*4) + (sr - sr_o);								//take keyboard offset into account
@@ -405,9 +405,9 @@ void raw_mode(){
 		kalman_filter();
 
 
-		for(uint8_t i=1; i<4; i++){
-			LRPY16[i] = 0;
-		}
+		// for(uint8_t i=1; i<4; i++){
+		// 	LRPY16[i] = 0;
+		// }
 		
 		roll_error = LRPY16[1]/4 - (k_LRPY[1]*4) - (phi_raw - phi_o);
 		pitch_error = LRPY16[2]/4 - (k_LRPY[2]*4) - (theta_raw - theta_o);
@@ -711,19 +711,19 @@ void run_control() // 250Hz
 			yaw_control();
 			break;
 		case FULLCONTROL:
-			// if(full_flag){
-			// 	full_flag=false;
-			// 	raw_flag = true;
-			// 	imu_init(true,100);
-			// }
+			if(full_flag){
+				full_flag=false;
+				raw_flag = true;
+				imu_init(true,100);
+			}
 			full_control();
 			break;
 		case RAW:
-			// if(raw_flag){
-			// 	raw_flag=false;
-			// 	full_flag=true;
-			// 	imu_init(false,100);
-			// }
+			if(raw_flag){
+				raw_flag=false;
+				full_flag=true;
+				imu_init(false,100);
+			}
 			raw_mode();
 			break;
 		case HEIGHT:
